@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rustのenumと代数的データ型</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/languages/rust.min.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Rustのenumと代数的データ型</h1>
+        <p class="subtitle">インタラクティブチュートリアル</p>
+    </header>
+
+    <!-- WebAssembly読み込み状態表示 -->
+    <div id="wasm-loading" class="wasm-loading">
+        <div class="loading-spinner"></div>
+        <p>WebAssemblyモジュールを読み込み中...</p>
+    </div>
+
+    <main>
+        <div class="container">
+            <section id="table-of-contents">
+                <h2>目次</h2>
+                <ul class="toc">
+                    <li><a href="#introduction">はじめに</a></li>
+                    <li><a href="#algebraic-data-types">代数的データ型とは</a></li>
+                    <li><a href="#rust-enum-basics">Rustのenumの基本</a></li>
+                    <li><a href="#enum-variants-with-data">バリアントにデータを持たせる</a></li>
+                    <li><a href="#pattern-matching">パターンマッチング</a></li>
+                    <li><a href="#option-result-types">Option型とResult型</a></li>
+                    <li><a href="#advanced-uses">代数的データ型としての高度な使い方</a></li>
+                    <li><a href="#impl-for-enum">enumに対するメソッド実装</a></li>
+                    <li><a href="#if-let-pattern">if letによる簡潔なパターンマッチング</a></li>
+                    <li><a href="#state-machine">状態遷移モデルとしてのenum</a></li>
+                    <li><a href="#match-exhaustiveness">matchの網羅性チェック</a></li>
+                    <li><a href="#generic-enums">ジェネリック型を使ったenum</a></li>
+                    <li><a href="#visitor-pattern">ビジターパターンの実装</a></li>
+                    <li><a href="#option-combinators">Option型の便利なコンビネータ</a></li>
+                    <li><a href="#advanced-pattern-matching">パターンマッチングの応用</a></li>
+                    <li><a href="#conclusion">まとめ</a></li>
+                </ul>
+            </section>
+
+            <section id="introduction">
+                <h2>はじめに</h2>
+                <p>Rustプログラミング言語には、多くの現代的な機能が組み込まれています。その中でも特に強力な機能の一つが「enum（列挙型）」です。Rustのenumは、単なる定数の集まりではなく、関数型プログラミングの概念である「代数的データ型（Algebraic Data Types、ADT）」を実装しています。</p>
+                <p>この記事では、Rustのenumの基本的な使い方から、関数型プログラミングの代数的データ型としての側面まで詳しく説明します。さらに、各コード例はブラウザ上で実行して動作を確認できます。</p>
+            </section>
+
+            <section id="algebraic-data-types">
+                <h2>代数的データ型とは</h2>
+                <p>代数的データ型は、関数型プログラミングの重要な概念で、主に以下の2種類があります：</p>
+                <ol>
+                    <li><strong>直和型（Sum Types）</strong> - 「これか、あれか」という選択を表現</li>
+                    <li><strong>直積型（Product Types）</strong> - 「これと、あれと」という組み合わせを表現</li>
+                </ol>
+                
+                <h3>代数的データ型と集合論</h3>
+                <p>代数的データ型は集合論の概念と深く関連しています。実際、型システムを数学的な集合として捉えることで、代数的データ型の概念がより明確になります。</p>
+                
+                <h4>和型と集合の和（Union）</h4>
+                <p>和型（Sum Types）は集合論における「直和（Disjoint Union）」に対応します。集合論的に考えると、2つの集合A、Bの直和は、AとBの要素をすべて含む新しい集合ですが、それぞれの要素がどの元の集合から来たかの情報も保持します。</p>
+                <p>例えば、Rustでの以下のenumは集合論的な直和を表現しています：</p>
+                
+                <pre><code class="language-rust">enum Either&lt;A, B&gt; {
+    Left(A),  // 集合Aの要素
+    Right(B), // 集合Bの要素
+}</code></pre>
+
+<div class="repl-container">
+    <div class="repl-header">
+        <h4>コードを実行してみよう</h4>
+    </div>
+    <div class="repl-code">
+        <pre><code class="language-rust">let x: Either<i32, &str> = Either::Left(42); format!("{:?}", x)</code></pre>
+    </div>
+    <div class="repl-buttons">
+        <button class="run-button" data-code='let x: Either<i32, &str> = Either::Left(42); format!("{:?}", x)'>実行</button>
+    </div>
+    <div class="repl-output"></div>
+</div>
+                
+                <p>この型の値の総数は、理論的には型AとBの値の総数の「和」になります。そのため「和型」と呼ばれています。</p>
+                
+                <h4>積型と集合の積（Cartesian Product）</h4>
+                <p>積型（Product Types）は集合論における「デカルト積（Cartesian Product）」に対応します。Rustでは<code>struct</code>がこれを表します：</p>
+                
+                <pre><code class="language-rust">struct Point {
+    x: i32,
+    y: i32,
+}</code></pre>
+
+<div class="repl-container">
+    <div class="repl-header">
+        <h4>コードを実行してみよう</h4>
+    </div>
+    <div class="repl-code">
+        <pre><code class="language-rust">let p = Point { x: 10, y: 20 }; format!("({}, {})", p.x, p.y)</code></pre>
+    </div>
+    <div class="repl-buttons">
+        <button class="run-button" data-code='let p = Point { x: 10, y: 20 }; format!("({}, {})", p.x, p.y)'>実行</button>
+    </div>
+    <div class="repl-output"></div>
+</div>
+                
+                <p>集合論では、この<code>Point</code>型は<code>i32 × i32</code>（i32とi32のデカルト積）を表します。この型の値の総数は、理論上は型<code>i32</code>の値の総数を2回掛け合わせた数になります。そのため「積型」と呼ばれます。</p>
+                
+                <div class="visualization">
+                    <h4>enumとstructの視覚的表現</h4>
+                    <div class="visual-container">
+                        <div class="visual-box">
+                            <h5>enum（和型）の概念図</h5>
+                            <pre>
+       Either&lt;A, B&gt;
+       /         \
+      /           \
+  Left(A)       Right(B)
+   
+   集合A          集合B
+ [a₁,a₂,a₃]     [b₁,b₂]
+
+→ 値の総数: |A| + |B| = 3 + 2 = 5個の可能な値</pre>
+                        </div>
+                        <div class="visual-box">
+                            <h5>struct（積型）の概念図</h5>
+                            <pre>
+  Point { x: i32, y: i32 }
+       ↓ 
+   x × y = デカルト積
+       ↓
+     (x,y)の組み合わせ
+  
+  集合i32   ×   集合i32
+[..,-2,-1,0,1,2,...] × [...,-2,-1,0,1,2,...]
+
+→ 値の総数: |i32| × |i32| = 2³² × 2³² = 2⁶⁴個の可能な値</pre>
+                        </div>
+                    </div>
+                </div>
+                
+                <h4>代数的データ型が「代数的」と呼ばれる理由</h4>
+                <p>代数的データ型が「代数的」と呼ばれる理由は、型の組み合わせ方が代数学の演算（加法と乗法）に従うからです：</p>
+                <ul>
+                    <li>和型（Sum Types）：選択肢の集まりで、代数の「加法（+）」に対応</li>
+                    <li>積型（Product Types）：複数の値の組み合わせで、代数の「乗法（×）」に対応</li>
+                </ul>
+                <p>型の値の数に関して以下の関係が成り立ちます：</p>
+                <ul>
+                    <li>|A+B| = |A| + |B|（和型の値の数は各型の値の数の和）</li>
+                    <li>|A×B| = |A| × |B|（積型の値の数は各型の値の数の積）</li>
+                </ul>
+                <p>ここで |X| は型Xの取りうる値の数を表します。</p>
+                <p>このように、代数的データ型は集合論と代数学の概念をプログラミング言語の型システムに応用したものと言えます。</p>
+                <p>Rustでは、enumが直和型を、structが直積型を表現します。</p>
+            </section>
+
+            <section id="rust-enum-basics">
+                <h2>Rustのenumの基本</h2>
+                <p>Rustのenumは、以下のような構文で定義します：</p>
+                
+                <pre><code class="language-rust">enum TrafficLight {
+    Red,
+    Yellow,
+    Green,
+}</code></pre>
+
+<div class="repl-container">
+    <div class="repl-header">
+        <h4>コードを実行してみよう</h4>
+    </div>
+    <div class="repl-code">
+        <pre><code class="language-rust">let light = TrafficLight::Red;
+match light {
+    TrafficLight::Red => "赤信号：停止",
+    TrafficLight::Yellow => "黄信号：注意",
+    TrafficLight::Green => "青信号：進行",
+}</code></pre>
+    </div>
+    <div class="repl-buttons">
+        <button class="run-button" data-code='let light = TrafficLight::Red; match light { TrafficLight::Red => "赤信号：停止", TrafficLight::Yellow => "黄信号：注意", TrafficLight::Green => "青信号：進行", }'>実行</button>
+    </div>
+    <div class="repl-output"></div>
+</div>
+                
+                <p>これは最も単純なenumの例で、C言語などの列挙型に似ています。しかし、Rustのenumはここからさらに強力な機能を持っています。</p>
+            </section>
+
+            <section id="enum-variants-with-data">
+                <h2>バリアントにデータを持たせる</h2>
+                <p>Rustのenumの各バリアント（選択肢）は、異なる型のデータを持つことができます：</p>
+                
+                <pre><code class="language-rust">enum Message {
+    Quit,                       // データなし
+    Move { x: i32, y: i32 },    // 名前付きフィールドを持つ匿名構造体
+    Write(String),              // 文字列を持つタプル構造体
+    ChangeColor(i32, i32, i32), // 3つの整数を持つタプル構造体
+}</code></pre>
+                
+                <p>これが、enumが代数的データ型の「直和型」として機能する理由です。<code>Message</code>型は「<code>Quit</code>か、<code>Move</code>か、<code>Write</code>か、<code>ChangeColor</code>か」のいずれかを表現します。</p>
+                
+                <div class="repl-container">
+                    <div class="repl-header">
+                        <h4>各種バリアントを試してみよう</h4>
+                    </div>
+                    <div class="repl-code">
+                        <pre><code class="language-rust">let msg = Message::quit(); msg.process()</code></pre>
+                    </div>
+                    <div class="repl-buttons">
+                        <button class="run-button" data-code="let msg = Message::quit(); msg.process()">実行</button>
+                        <button class="run-button" data-code="let msg = Message::move_to(10, 20); msg.process()">Move例を実行</button>
+                        <button class="run-button" data-code='let msg = Message::write("こんにちは"); msg.process()'>Write例を実行</button>
+                        <button class="run-button" data-code="let msg = Message::change_color(255, 0, 0); msg.process()">ChangeColor例を実行</button>
+                    </div>
+                    <div class="repl-output"></div>
+                </div>
+            </section>
+
+            <section id="pattern-matching">
+                <h2>パターンマッチング</h2>
+                <p>Rustでは<code>match</code>式を使って、enumの値を分解して処理することができます：</p>
+                
+                <pre><code class="language-rust">fn process_message(msg: Message) {
+    match msg {
+        Message::Quit => println!("終了します"),
+        Message::Move { x, y } => println!("位置 ({}, {}) に移動します", x, y),
+        Message::Write(text) => println!("メッセージ: {}", text),
+        Message::ChangeColor(r, g, b) => println!("色を ({}, {}, {}) に変更します", r, g, b),
+    }
+}</code></pre>
+
+<div class="repl-container">
+    <div class="repl-header">
+        <h4>コードを実行してみよう</h4>
+    </div>
+    <div class="repl-code">
+        <pre><code class="language-rust">let msg = Message::write("こんにちは世界"); process_message(msg)</code></pre>
+    </div>
+    <div class="repl-buttons">
+        <button class="run-button" data-code='let msg = Message::write("こんにちは世界"); process_message(msg)'>実行</button>
+    </div>
+    <div class="repl-output"></div>
+</div>
+                
+                <p>パターンマッチングは、代数的データ型を扱う上で非常に重要な機能です。これにより、すべてのケースを網羅的に処理することが強制され、実行時エラーを防ぐことができます。</p>
+            </section>
+
+            <section id="option-result-types">
+                <h2>Option型とResult型</h2>
+                <p>Rustの標準ライブラリには、2つの重要なenumが定義されています：</p>
+                
+                <h3>Option型</h3>
+                <pre><code class="language-rust">enum Option&lt;T&gt; {
+    Some(T),
+    None,
+}</code></pre>
+                
+                <p><code>Option</code>型は値が存在するかしないかを表現します。これにより、nullポインタによるエラーを回避できます。</p>
+                
+                <pre><code class="language-rust">fn divide(numerator: f64, denominator: f64) -> Option&lt;f64&gt; {
+    if denominator == 0.0 {
+        None
+    } else {
+        Some(numerator / denominator)
+    }
+}</code></pre>
+                
+                <div class="repl-container">
+                    <div class="repl-header">
+                        <h4>Option型を試してみよう</h4>
+                    </div>
+                    <div class="repl-code">
+                        <pre><code class="language-rust">divide(10.0, 2.0).map_or("ゼロ除算エラー".to_string(), |result| format!("結果: {}", result))</code></pre>
+                    </div>
+                    <div class="repl-buttons">
+                        <button class="run-button" data-code='divide(10.0, 2.0).map_or("ゼロ除算エラー".to_string(), |result| format!("結果: {}", result))'>成功例を実行</button>
+                        <button class="run-button" data-code='divide(10.0, 0.0).map_or("ゼロ除算エラー".to_string(), |result| format!("結果: {}", result))'>失敗例を実行</button>
+                    </div>
+                    <div class="repl-output"></div>
+                </div>
+                
+                <h3>Result型</h3>
+                <pre><code class="language-rust">enum Result&lt;T, E&gt; {
+    Ok(T),
+    Err(E),
+}</code></pre>
+                
+                <p><code>Result</code>型は操作が成功したか失敗したかを表現し、エラー処理を型安全に行えます。</p>
+                
+                <pre><code class="language-rust">use std::fs::File;
+
+fn open_file(path: &str) {
+    match File::open(path) {
+        Ok(file) => println!("ファイルを開きました: {:?}", file),
+        Err(error) => println!("ファイルを開けませんでした: {}", error),
+    }
+}</code></pre>
+
+<div class="repl-container">
+    <div class="repl-header">
+        <h4>コードを実行してみよう</h4>
+    </div>
+    <div class="repl-code">
+        <pre><code class="language-rust">// Result型を使ったエラーハンドリングの例
+use std::io;
+let result: Result<i32, io::Error> = Ok(42);
+match result {
+    Ok(value) => format!("成功: {}", value),
+    Err(e) => format!("エラー: {}", e),
+}</code></pre>
+    </div>
+    <div class="repl-buttons">
+        <button class="run-button" data-code='use std::io; let result: Result<i32, io::Error> = Ok(42); match result { Ok(value) => format!("成功: {}", value), Err(e) => format!("エラー: {}", e), }'>実行</button>
+        <button class="run-button" data-code='use std::io; let result: Result<i32, io::Error> = Err(io::Error::new(io::ErrorKind::NotFound, "ファイルが見つかりません")); match result { Ok(value) => format!("成功: {}", value), Err(e) => format!("エラー: {}", e), }'>エラー例を実行</button>
+    </div>
+    <div class="repl-output"></div>
+</div>
+            </section>
+
+            <section id="advanced-uses">
+                <h2>代数的データ型としての高度な使い方</h2>
+                
+                <h3>再帰的なデータ構造</h3>
+                <p>enumは自分自身を参照することができ、再帰的なデータ構造を作ることができます：</p>
+                
+                <pre><code class="language-rust">enum List&lt;T&gt; {
+    Cons(T, Box&lt;List&lt;T&gt;&gt;),
+    Nil,
+}</code></pre>
+
+<div class="repl-container">
+    <div class="repl-header">
+        <h4>コードを実行してみよう</h4>
+    </div>
+    <div class="repl-code">
+        <pre><code class="language-rust">// リストを作成して要素を表示
+let list = List::cons(1, List::cons(2, List::cons(3, List::nil())));
+format!("{:?}", list)</code></pre>
+    </div>
+    <div class="repl-buttons">
+        <button class="run-button" data-code='let list = List::cons(1, List::cons(2, List::cons(3, List::nil()))); format!("{:?}", list)'>実行</button>
+    </div>
+    <div class="repl-output"></div>
+</div>
+                
+                <h3>型の合成</h3>
+                <p>enumとstructを組み合わせることで、複雑なデータ型を表現できます：</p>
+                
+                <pre><code class="language-rust">struct Point {
+    x: i32,
+    y: i32,
+}
+
+enum Shape {
+    Circle(Point, i32),  // 中心点と半径
+    Rectangle(Point, Point),  // 左上と右下の点
+    Triangle(Point, Point, Point),  // 3つの頂点
+}</code></pre>
+
+<div class="repl-container">
+    <div class="repl-header">
+        <h4>コードを実行してみよう</h4>
+    </div>
+    <div class="repl-code">
+        <pre><code class="language-rust">// 円を作成
+let center = Point { x: 0, y: 0 };
+let circle = Shape::Circle(center, 10);
+format!("{:?}", circle)</code></pre>
+    </div>
+    <div class="repl-buttons">
+        <button class="run-button" data-code='let center = Point { x: 0, y: 0 }; let circle = Shape::Circle(center, 10); format!("{:?}", circle)'>実行</button>
+    </div>
+    <div class="repl-output"></div>
+</div>
+            </section>
+
+            <section id="conclusion">
+                <h2>まとめ</h2>
+                <p>Rustのenumは、関数型プログラミングの代数的データ型（特に直和型）を実装した強力な機能です。以下の利点があります：</p>
+                <ol>
+                    <li><strong>型安全性</strong> - コンパイル時に多くのエラーを防ぐことができる</li>
+                    <li><strong>表現力</strong> - 複雑なドメインモデルを自然に表現できる</li>
+                    <li><strong>パターンマッチング</strong> - データの分解と処理を網羅的かつ明示的に行える</li>
+                </ol>
+                <p>これらの特徴により、Rustではより堅牢で保守性の高いコードを書くことができます。関数型プログラミングの考え方を取り入れることで、命令型言語にありがちな多くの問題を回避しつつ、高いパフォーマンスを維持することができるのです。</p>
+            </section>
+
+            <!-- 追加のセクション -->
+            <section id="impl-for-enum">
+                <h2>enumに対するメソッド実装</h2>
+                <p>Rustでは、enumに対してもメソッドを実装することができます。これにより、データと振る舞いをより密接に結びつけることが可能です。</p>
+                
+                <pre><code class="language-rust">enum Color {
+    Red,
+    Green,
+    Blue,
+    RGB(u8, u8, u8),
+}
+
+impl Color {
+    fn to_rgb(&self) -> (u8, u8, u8) {
+        match self {
+            Color::Red => (255, 0, 0),
+            Color::Green => (0, 255, 0),
+            Color::Blue => (0, 0, 255),
+            Color::RGB(r, g, b) => (*r, *g, *b),
+        }
+    }
+    
+    fn brightness(&self) -> u8 {
+        let (r, g, b) = self.to_rgb();
+        // 簡易的な輝度計算（実際はもっと複雑）
+        (r as u16 + g as u16 + b as u16) as u8 / 3
+    }
+}</code></pre>
+
+                <div class="repl-container">
+                    <div class="repl-header">
+                        <h4>コードを実行してみよう</h4>
+                    </div>
+                    <div class="repl-code">
+                        <pre><code class="language-rust">let color = Color::RGB(100, 150, 200);
+format!("RGB値: {:?}, 輝度: {}", color.to_rgb(), color.brightness())</code></pre>
+                    </div>
+                    <div class="repl-buttons">
+                        <button class="run-button" data-code='let color = Color::RGB(100, 150, 200); format!("RGB値: {:?}, 輝度: {}", color.to_rgb(), color.brightness())'>実行</button>
+                        <button class="run-button" data-code='let color = Color::Blue; format!("RGB値: {:?}, 輝度: {}", color.to_rgb(), color.brightness())'>青色で実行</button>
+                    </div>
+                    <div class="repl-output"></div>
+                </div>
+                
+                <p>このように、enumに対してメソッドを実装することで、関連する操作を型と一緒に定義できます。これはオブジェクト指向プログラミングの考え方に近いですが、Rustではより型安全な方法で実現されています。</p>
+            </section>
+
+            <section id="if-let-pattern">
+                <h2>if letによる簡潔なパターンマッチング</h2>
+                <p>完全なmatch式は強力ですが、単一のパターンだけに関心がある場合は冗長になることがあります。Rustでは<code>if let</code>構文を使って、より簡潔にパターンマッチングを行うことができます。</p>
+                
+                <pre><code class="language-rust">fn process_optional_value(opt: Option<i32>) {
+    // match式を使った場合
+    match opt {
+        Some(value) => println!("値があります: {}", value),
+        None => (), // 何もしない
+    }
+    
+    // if letを使った場合（より簡潔）
+    if let Some(value) = opt {
+        println!("値があります: {}", value);
+    }
+}</code></pre>
+
+                <div class="repl-container">
+                    <div class="repl-header">
+                        <h4>コードを実行してみよう</h4>
+                    </div>
+                    <div class="repl-code">
+                        <pre><code class="language-rust">let numbers = vec![1, 2, 3, 4, 5];
+let first = numbers.first();
+
+// if letで値がある場合のみ処理
+if let Some(value) = first {
+    format!("最初の要素: {}", value)
+} else {
+    "リストは空です".to_string()
+}</code></pre>
+                    </div>
+                    <div class="repl-buttons">
+                        <button class="run-button" data-code='let numbers = vec![1, 2, 3, 4, 5]; let first = numbers.first(); if let Some(value) = first { format!("最初の要素: {}", value) } else { "リストは空です".to_string() }'>実行</button>
+                        <button class="run-button" data-code='let numbers: Vec<i32> = vec![]; let first = numbers.first(); if let Some(value) = first { format!("最初の要素: {}", value) } else { "リストは空です".to_string() }'>空リストで実行</button>
+                    </div>
+                    <div class="repl-output"></div>
+                </div>
+                
+                <p><code>if let</code>はパターンが一致した場合のみコードブロックを実行するため、特定のケースだけを扱いたい場合に非常に便利です。同様に<code>while let</code>も存在し、条件が真である間パターンマッチングを繰り返し実行します。</p>
+            </section>
+
+            <section id="state-machine">
+                <h2>状態遷移モデルとしてのenum</h2>
+                <p>enumは状態遷移モデル（ステートマシン）の実装に非常に適しています。各状態を別々のバリアントとして表現し、状態間の遷移をメソッドとして実装できます。</p>
+                
+                <pre><code class="language-rust">enum WaterState {
+    Solid,    // 固体（氷）
+    Liquid,   // 液体（水）
+    Gas,      // 気体（水蒸気）
+}
+
+impl WaterState {
+    fn heat(&self) -> WaterState {
+        match self {
+            WaterState::Solid => WaterState::Liquid,   // 氷 → 水
+            WaterState::Liquid => WaterState::Gas,     // 水 → 水蒸気
+            WaterState::Gas => WaterState::Gas,        // 水蒸気 → 水蒸気（変化なし）
+        }
+    }
+    
+    fn cool(&self) -> WaterState {
+        match self {
+            WaterState::Solid => WaterState::Solid,    // 氷 → 氷（変化なし）
+            WaterState::Liquid => WaterState::Solid,   // 水 → 氷
+            WaterState::Gas => WaterState::Liquid,     // 水蒸気 → 水
+        }
+    }
+    
+    fn name(&self) -> &'static str {
+        match self {
+            WaterState::Solid => "氷",
+            WaterState::Liquid => "水",
+            WaterState::Gas => "水蒸気",
+        }
+    }
+}</code></pre>
+
+                <div class="repl-container">
+                    <div class="repl-header">
+                        <h4>コードを実行してみよう</h4>
+                    </div>
+                    <div class="repl-code">
+                        <pre><code class="language-rust">// 状態遷移の例
+let mut state = WaterState::Solid;
+let mut history = format!("初期状態: {}", state.name());
+
+// 加熱して水に
+state = state.heat();
+history.push_str(&format!(" → 加熱 → {}", state.name()));
+
+// さらに加熱して水蒸気に
+state = state.heat();
+history.push_str(&format!(" → 加熱 → {}", state.name()));
+
+// 冷却して水に戻す
+state = state.cool();
+history.push_str(&format!(" → 冷却 → {}", state.name()));
+
+history</code></pre>
+                    </div>
+                    <div class="repl-buttons">
+                        <button class="run-button" data-code='let mut state = WaterState::Solid; let mut history = format!("初期状態: {}", state.name()); state = state.heat(); history.push_str(&format!(" → 加熱 → {}", state.name())); state = state.heat(); history.push_str(&format!(" → 加熱 → {}", state.name())); state = state.cool(); history.push_str(&format!(" → 冷却 → {}", state.name())); history'>実行</button>
+                    </div>
+                    <div class="repl-output"></div>
+                </div>
+                
+                <p>この例では、水の状態（固体、液体、気体）を表すenumを定義し、加熱や冷却による状態遷移を実装しています。このパターンは、有限状態オートマトンの実装や、ワークフローの管理などに応用できます。</p>
+            </section>
+
+            <section id="match-exhaustiveness">
+                <h2>matchの網羅性チェック</h2>
+                <p>Rustのmatch式は、すべてのケースを網羅することが強制されます。これはコンパイル時に「パターンの網羅性チェック」として行われ、未処理のケースがあるとコンパイルエラーになります。</p>
+                
+                <pre><code class="language-rust">enum Direction {
+    North,
+    South,
+    East,
+    West,
+}
+
+fn describe_direction(dir: Direction) -> &'static str {
+    match dir {
+        Direction::North => "北に進む",
+        Direction::South => "南に進む",
+        // East と West が未処理！
+        // これはコンパイルエラーになる
+    }
+}
+
+// 正しい実装
+fn describe_direction_correctly(dir: Direction) -> &'static str {
+    match dir {
+        Direction::North => "北に進む",
+        Direction::South => "南に進む",
+        Direction::East => "東に進む",
+        Direction::West => "西に進む",
+    }
+}</code></pre>
+
+                <div class="repl-container">
+                    <div class="repl-header">
+                        <h4>コードを実行してみよう</h4>
+                    </div>
+                    <div class="repl-code">
+                        <pre><code class="language-rust">// 全てのケースを網羅した関数を呼び出す
+let directions = [
+    Direction::North,
+    Direction::East,
+    Direction::South,
+    Direction::West
+];
+
+let descriptions: Vec<&str> = directions.iter()
+    .map(|&dir| describe_direction_correctly(dir))
+    .collect();
+
+format!("方向の説明: {:?}", descriptions)</code></pre>
+                    </div>
+                    <div class="repl-buttons">
+                        <button class="run-button" data-code='let directions = [Direction::North, Direction::East, Direction::South, Direction::West]; let descriptions: Vec<_> = directions.iter().map(|&dir| describe_direction_correctly(dir)).collect(); format!("方向の説明: {:?}", descriptions)'>実行</button>
+                    </div>
+                    <div class="repl-output"></div>
+                </div>
+                
+                <p>この網羅性チェックは、新しいバリアントが追加された場合に特に価値を発揮します。例えば後から<code>Direction</code>に<code>NorthEast</code>などの方向を追加すると、<code>describe_direction_correctly</code>関数はコンパイルエラーになり、新しいケースを処理するよう修正を促します。</p>
+                
+                <p>これにより、コードの堅牢性が大幅に向上し、「見落とし」によるバグを減らすことができます。</p>
+            </section>
+
+            <section id="generic-enums">
+                <h2>ジェネリック型を使ったenum</h2>
+                <p>Rustのenumはジェネリック型を使って、より柔軟なデータ構造を表現することができます。先に見た<code>Option&lt;T&gt;</code>や<code>Result&lt;T, E&gt;</code>もジェネリックなenumの例です。</p>
+                
+                <pre><code class="language-rust">enum Payload<T> {
+    Empty,
+    Single(T),
+    Multiple(Vec<T>),
+}
+
+impl<T: std::fmt::Debug> Payload<T> {
+    fn describe(&self) -> String {
+        match self {
+            Payload::Empty => "ペイロードは空です".to_string(),
+            Payload::Single(item) => format!("単一アイテム: {:?}", item),
+            Payload::Multiple(items) => format!("複数アイテム: {:?}", items),
+        }
+    }
+    
+    fn count(&self) -> usize {
+        match self {
+            Payload::Empty => 0,
+            Payload::Single(_) => 1,
+            Payload::Multiple(items) => items.len(),
+        }
+    }
+}</code></pre>
+
+                <div class="repl-container">
+                    <div class="repl-header">
+                        <h4>コードを実行してみよう</h4>
+                    </div>
+                    <div class="repl-code">
+                        <pre><code class="language-rust">// 文字列のペイロード
+let string_payload = Payload::Single("Hello".to_string());
+let string_desc = string_payload.describe();
+
+// 数値のペイロード
+let number_payload = Payload::Multiple(vec![1, 2, 3, 4, 5]);
+let number_desc = number_payload.describe();
+let count = number_payload.count();
+
+format!("文字列ペイロード: {}\n数値ペイロード: {}\nアイテム数: {}", 
+        string_desc, number_desc, count)</code></pre>
+                    </div>
+                    <div class="repl-buttons">
+                        <button class="run-button" data-code='let string_payload = Payload::Single("Hello".to_string()); let string_desc = string_payload.describe(); let number_payload = Payload::Multiple(vec![1, 2, 3, 4, 5]); let number_desc = number_payload.describe(); let count = number_payload.count(); format!("文字列ペイロード: {}\n数値ペイロード: {}\nアイテム数: {}", string_desc, number_desc, count)'>実行</button>
+                    </div>
+                    <div class="repl-output"></div>
+                </div>
+                
+                <p>このように、ジェネリック型を使うことで、同じ構造を持つが異なる型を扱えるenumを定義できます。これにより、コードの再利用性が高まり、型安全性を維持しながら柔軟なデータ構造を作成できます。</p>
+            </section>
+
+            <section id="visitor-pattern">
+                <h2>ビジターパターンの実装</h2>
+                <p>enumを使うと、デザインパターンの一つである「ビジターパターン」を型安全に実装することができます。これにより、データ構造と操作を分離し、新しい操作を簡単に追加できるようになります。</p>
+                
+                <pre><code class="language-rust">// 式を表すenum
+enum Expression {
+    Number(f64),
+    Add(Box<Expression>, Box<Expression>),
+    Subtract(Box<Expression>, Box<Expression>),
+    Multiply(Box<Expression>, Box<Expression>),
+    Divide(Box<Expression>, Box<Expression>),
+}
+
+// 式に対する操作を定義するトレイト（ビジター）
+trait ExpressionVisitor {
+    fn visit_number(&self, value: f64) -> f64;
+    fn visit_add(&self, left: &Expression, right: &Expression) -> f64;
+    fn visit_subtract(&self, left: &Expression, right: &Expression) -> f64;
+    fn visit_multiply(&self, left: &Expression, right: &Expression) -> f64;
+    fn visit_divide(&self, left: &Expression, right: &Expression) -> f64;
+}
+
+// 式の評価ビジター
+struct Evaluator;
+
+impl ExpressionVisitor for Evaluator {
+    fn visit_number(&self, value: f64) -> f64 {
+        value
+    }
+    
+    fn visit_add(&self, left: &Expression, right: &Expression) -> f64 {
+        left.accept(self) + right.accept(self)
+    }
+    
+    fn visit_subtract(&self, left: &Expression, right: &Expression) -> f64 {
+        left.accept(self) - right.accept(self)
+    }
+    
+    fn visit_multiply(&self, left: &Expression, right: &Expression) -> f64 {
+        left.accept(self) * right.accept(self)
+    }
+    
+    fn visit_divide(&self, left: &Expression, right: &Expression) -> f64 {
+        left.accept(self) / right.accept(self)
+    }
+}
+
+// Expressionに対する拡張メソッド
+impl Expression {
+    fn accept(&self, visitor: &dyn ExpressionVisitor) -> f64 {
+        match self {
+            Expression::Number(value) => visitor.visit_number(*value),
+            Expression::Add(left, right) => visitor.visit_add(left, right),
+            Expression::Subtract(left, right) => visitor.visit_subtract(left, right),
+            Expression::Multiply(left, right) => visitor.visit_multiply(left, right),
+            Expression::Divide(left, right) => visitor.visit_divide(left, right),
+        }
+    }
+}</code></pre>
+
+                <div class="repl-container">
+                    <div class="repl-header">
+                        <h4>コードを実行してみよう</h4>
+                    </div>
+                    <div class="repl-code">
+                        <pre><code class="language-rust">// 式 (2 + 3) * (4 - 1) を構築
+let expression = Expression::Multiply(
+    Box::new(Expression::Add(
+        Box::new(Expression::Number(2.0)),
+        Box::new(Expression::Number(3.0))
+    )),
+    Box::new(Expression::Subtract(
+        Box::new(Expression::Number(4.0)),
+        Box::new(Expression::Number(1.0))
+    ))
+);
+
+// 式を評価
+let evaluator = Evaluator;
+let result = expression.accept(&evaluator);
+
+format!("式の評価結果: {}", result)</code></pre>
+                    </div>
+                    <div class="repl-buttons">
+                        <button class="run-button" data-code='let expression = Expression::Multiply(Box::new(Expression::Add(Box::new(Expression::Number(2.0)), Box::new(Expression::Number(3.0)))), Box::new(Expression::Subtract(Box::new(Expression::Number(4.0)), Box::new(Expression::Number(1.0))))); let evaluator = Evaluator; let result = expression.accept(&evaluator); format!("式の評価結果: {}", result)'>実行</button>
+                    </div>
+                    <div class="repl-output"></div>
+                </div>
+                
+                <p>このビジターパターンの実装では、<code>Expression</code> enumを使って抽象構文木（AST）を表現し、<code>ExpressionVisitor</code>トレイトを使って操作を定義しています。この方法の利点は、新しい操作（例：式の文字列化、コード生成など）を追加する際に、<code>Expression</code>自体を変更せずに新しいビジター実装を作成するだけで良い点です。</p>
+            </section>
+
+            <section id="option-combinators">
+                <h2>Option型の便利なコンビネータ</h2>
+                <p>Rustの<code>Option</code>型には、値の処理を簡潔に記述するための様々なコンビネータメソッドが用意されています。これらを使うことで、明示的な<code>match</code>式を書かずに、宣言的なスタイルでコードを書くことができます。</p>
+                
+                <pre><code class="language-rust">fn process_user_input(input: Option<String>) -> String {
+    // map: Someの中の値を変換
+    let uppercase = input.map(|s| s.to_uppercase());
+    
+    // unwrap_or: Noneの場合にデフォルト値を返す
+    let result = uppercase.unwrap_or_else(|| "入力がありません".to_string());
+    
+    result
+}
+
+// より複雑な連鎖の例
+fn find_username(id: u32) -> Option<String> {
+    // データベースからユーザー検索を模倣
+    if id == 1 {
+        Some("alice".to_string())
+    } else if id == 2 {
+        Some("bob".to_string())
+    } else {
+        None
+    }
+}
+
+fn find_email(username: &str) -> Option<String> {
+    // ユーザー名からメールアドレスの検索を模倣
+    match username {
+        "alice" => Some("alice@example.com".to_string()),
+        "bob" => Some("bob@example.org".to_string()),
+        _ => None,
+    }
+}</code></pre>
+
+                <div class="repl-container">
+                    <div class="repl-header">
+                        <h4>コードを実行してみよう</h4>
+                    </div>
+                    <div class="repl-code">
+                        <pre><code class="language-rust">// 基本的な使用例
+let input1 = Some("hello".to_string());
+let input2 = None;
+let result1 = process_user_input(input1);
+let result2 = process_user_input(input2);
+
+// 連鎖した操作（Option::and_then を使用）
+let id = 1;
+let email = find_username(id)
+    .and_then(|username| find_email(&username))
+    .unwrap_or_else(|| "メールアドレスが見つかりません".to_string());
+
+format!("結果1: {}\n結果2: {}\nメールアドレス: {}", 
+        result1, result2, email)</code></pre>
+                    </div>
+                    <div class="repl-buttons">
+                        <button class="run-button" data-code='let input1 = Some("hello".to_string()); let input2 = None; let result1 = process_user_input(input1); let result2 = process_user_input(input2); let id = 1; let email = find_username(id).and_then(|username| find_email(&username)).unwrap_or_else(|| "メールアドレスが見つかりません".to_string()); format!("結果1: {}\n結果2: {}\nメールアドレス: {}", result1, result2, email)'>実行</button>
+                        <button class="run-button" data-code='let id = 3; let email = find_username(id).and_then(|username| find_email(&username)).unwrap_or_else(|| "メールアドレスが見つかりません".to_string()); format!("存在しないユーザーの検索結果: {}", email)'>存在しないIDで実行</button>
+                    </div>
+                    <div class="repl-output"></div>
+                </div>
+                
+                <p>よく使われるOptionのコンビネータには以下のようなものがあります：</p>
+                <ul>
+                    <li><code>map</code> - Someの中の値を変換する</li>
+                    <li><code>and_then</code> - Someの中の値を別のOptionを返す関数に渡す（モナド的な連鎖）</li>
+                    <li><code>unwrap_or</code> - Noneの場合にデフォルト値を返す</li>
+                    <li><code>unwrap_or_else</code> - Noneの場合に関数からデフォルト値を生成して返す</li>
+                    <li><code>filter</code> - 条件を満たすSomeのみを通過させる</li>
+                </ul>
+                
+                <p>これらのコンビネータを使うことで、より宣言的で読みやすいコードを書くことができます。また、<code>?</code>演算子を使用すると、<code>Result</code>型と同様に、早期リターンによるエラー処理のような記述も可能です。</p>
+            </section>
+
+            <section id="advanced-pattern-matching">
+                <h2>パターンマッチングの応用</h2>
+                <p>Rustのパターンマッチングは非常に強力で、複雑なデータ構造を分解して処理することができます。ここでは、より高度なパターンマッチングの例を見ていきましょう。</p>
+                
+                <pre><code class="language-rust">// 複雑なデータ構造
+struct Person {
+    name: String,
+    age: u32,
+    address: Option<Address>,
+}
+
+struct Address {
+    street: String,
+    city: String,
+    country: String,
+}
+
+// 複数のパターンを一度に処理
+fn describe_age(age: u32) -> &'static str {
+    match age {
+        0 => "生まれたばかり",
+        1..=12 => "子供",
+        13..=19 => "ティーンエイジャー",
+        20..=39 => "若者",
+        40..=59 => "中年",
+        60..=79 => "シニア",
+        80..=120 => "長寿",
+        _ => "不明な年齢",
+    }
+}
+
+// 構造体の分解
+fn format_address(person: &Person) -> String {
+    // パターンマッチングで構造体を分解
+    match person {
+        Person { name, age, address: Some(Address { street, city, country }) } => {
+            format!("{}（{}歳）は{}の{}、{}に住んでいます", 
+                    name, age, country, city, street)
+        },
+        Person { name, age, address: None } => {
+            format!("{}（{}歳）の住所は登録されていません", name, age)
+        }
+    }
+}</code></pre>
+
+                <div class="repl-container">
+                    <div class="repl-header">
+                        <h4>コードを実行してみよう</h4>
+                    </div>
+                    <div class="repl-code">
+                        <pre><code class="language-rust">// 年齢の分類
+let ages = [0, 5, 15, 25, 45, 65, 85, 150];
+let descriptions: Vec<_> = ages.iter()
+    .map(|&age| format!("{}歳: {}", age, describe_age(age)))
+    .collect();
+
+// 住所情報の処理
+let person1 = Person {
+    name: "田中太郎".to_string(),
+    age: 35,
+    address: Some(Address {
+        street: "桜町3-5-1".to_string(),
+        city: "東京".to_string(),
+        country: "日本".to_string(),
+    }),
+};
+
+let person2 = Person {
+    name: "山田花子".to_string(),
+    age: 28,
+    address: None,
+};
+
+let address1 = format_address(&person1);
+let address2 = format_address(&person2);
+
+format!("年齢の分類:\n{}\n\n住所情報:\n{}\n{}", 
+        descriptions.join("\n"), address1, address2)</code></pre>
+                    </div>
+                    <div class="repl-buttons">
+                        <button class="run-button" data-code='let ages = [0, 5, 15, 25, 45, 65, 85, 150]; let descriptions: Vec<_> = ages.iter().map(|&age| format!("{}歳: {}", age, describe_age(age))).collect(); let person1 = Person { name: "田中太郎".to_string(), age: 35, address: Some(Address { street: "桜町3-5-1".to_string(), city: "東京".to_string(), country: "日本".to_string(), }), }; let person2 = Person { name: "山田花子".to_string(), age: 28, address: None, }; let address1 = format_address(&person1); let address2 = format_address(&person2); format!("年齢の分類:\n{}\n\n住所情報:\n{}\n{}", descriptions.join("\n"), address1, address2)'>実行</button>
+                    </div>
+                    <div class="repl-output"></div>
+                </div>
+                
+                <h3>パターンマッチングの高度な機能</h3>
+                <p>Rustのパターンマッチングには、以下のような高度な機能があります：</p>
+                <ul>
+                    <li><strong>範囲パターン</strong> - <code>1..=5</code>のように範囲で値をマッチング</li>
+                    <li><strong>複合パターン</strong> - <code>|</code>を使って複数のパターンを一度に処理</li>
+                    <li><strong>デストラクチャリング</strong> - 構造体やタプルを分解して内部の値にアクセス</li>
+                    <li><strong>ガード条件</strong> - <code>if</code>を使って追加の条件を指定</li>
+                    <li><strong>バインディング</strong> - <code>@</code>を使ってパターンの一部を変数にバインド</li>
+                </ul>
+                
+                <pre><code class="language-rust">// 複合パターンとガード条件の例
+fn classify_number(n: i32) -> String {
+    match n {
+        // 複合パターン（または）
+        0 | 1 => "0または1".to_string(),
+        
+        // 範囲パターンとガード条件
+        x @ 2..=10 if x % 2 == 0 => format!("2から10までの偶数: {}", x),
+        x @ 2..=10 => format!("2から10までの奇数: {}", x),
+        
+        // バインディングとガード条件
+        x if x < 0 => format!("負の数: {}", x),
+        x => format!("その他の数: {}", x),
+    }
+}</code></pre>
+
+                <div class="repl-container">
+                    <div class="repl-header">
+                        <h4>コードを実行してみよう</h4>
+                    </div>
+                    <div class="repl-code">
+                        <pre><code class="language-rust">// 様々な数値を分類
+let numbers = [-5, 0, 1, 2, 3, 4, 5, 10, 20];
+let classifications: Vec<_> = numbers.iter()
+    .map(|&n| format!("{}: {}", n, classify_number(n)))
+    .collect();
+
+format!("数値の分類:\n{}", classifications.join("\n"))</code></pre>
+                    </div>
+                    <div class="repl-buttons">
+                        <button class="run-button" data-code='let numbers = [-5, 0, 1, 2, 3, 4, 5, 10, 20]; let classifications: Vec<_> = numbers.iter().map(|&n| format!("{}: {}", n, classify_number(n))).collect(); format!("数値の分類:\n{}", classifications.join("\n"))'>実行</button>
+                    </div>
+                    <div class="repl-output"></div>
+                </div>
+             </section>
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2025 t-cool</p>
+    </footer>
+
+    <script>
+        // シンタックスハイライトを有効化
+        document.addEventListener('DOMContentLoaded', (event) => {
+            // エスケープされていないHTMLに関する警告を抑制
+            hljs.configure({
+                ignoreUnescapedHTML: true
+            });
+            
+            document.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightBlock(block);
+            });
+        });
+    </script>
+
+    <!-- JavaScriptモジュールを読み込み -->
+    <script src="./js/index.js" type="module"></script>
+</body>
+</html> 
