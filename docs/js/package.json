@@ -1,0 +1,15 @@
+{
+  "name": "rust-enum-tutorial",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "rust_enum_tutorial_bg.wasm",
+    "rust_enum_tutorial.js",
+    "rust_enum_tutorial.d.ts"
+  ],
+  "main": "rust_enum_tutorial.js",
+  "types": "rust_enum_tutorial.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
