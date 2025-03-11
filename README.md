@@ -1,4 +1,4 @@
-# Rustのenumと代数的データ型 - インタラクティブチュートリアル
+# Rustのenumと代数的データ型
 
 このプロジェクトは、Rustの列挙型（enum）と代数的データ型（Algebraic Data Types）についてのインタラクティブなチュートリアルです。WebAssemblyを使用して、ブラウザ上でRustコードを実行し、挙動を確認できます。
 
